@@ -1,33 +1,63 @@
+import streamlit as st
 import pandas as pd
-import plotly.graph_objects as go  # Importación de plotly.graph_objects como go
-import streamlit as st
+import plotly.express as px
 
-# Leer los datos del archivo CSV
-car_data = pd.read_csv('vehicles_us.csv')
+# -------------------
+# Función para cargar datos
+# -------------------
+@st.cache_data
+def load_data():
+    try:
+        df = pd.read_csv("vehicles_us.csv")
+        return df
+    except FileNotFoundError:
+        st.error("⚠️ No se encontró el archivo 'vehicles_us.csv'.")
+        return None
 
-# Crear un botón en la aplicación Streamlit
-hist_button = st.button('Construir histograma')
+# -------------------
+# Función para graficar
+# -------------------
+def plot_histogram(df, column, title):
+    fig = px.histogram(df, x=column, nbins=30, title=title)
+    st.plotly_chart(fig)
 
-import streamlit as st
+def plot_scatter(df, x_col, y_col, title):
+    fig = px.scatter(df, x=x_col, y=y_col, title=title)
+    st.plotly_chart(fig)
 
-# crear una casilla de verificación
-build_histogram = st.checkbox('Construir un histograma')
+# -------------------
+# Interfaz Streamlit
+# -------------------
+st.title("Análisis de Vehículos - Proyecto 07")
 
-if build_histogram: # si la casilla de verificación está seleccionada
-    st.write('Construir un histograma para la columna odómetro')
+df = load_data()
 
-# Lógica a ejecutar cuando se hace clic en el botón
-if hist_button:
-    # Escribir un mensaje en la aplicación
-    st.write('Creación de un histograma para el conjunto de datos de anuncios de venta de coches')
+if df is not None and "odometer" in df.columns and "price" in df.columns:
+    
+    # Filtros
+    st.sidebar.header("Filtros")
+    odometer_range = st.sidebar.slider(
+        "Selecciona rango de kilometraje",
+        int(df["odometer"].min()), int(df["odometer"].max()),
+        (int(df["odometer"].min()), int(df["odometer"].max()))
+    )
+    price_range = st.sidebar.slider(
+        "Selecciona rango de precio",
+        int(df["price"].min()), int(df["price"].max()),
+        (int(df["price"].min()), int(df["price"].max()))
+    )
+    
+    # Aplicar filtros
+    filtered_df = df[
+        (df["odometer"].between(*odometer_range)) &
+        (df["price"].between(*price_range))
+    ]
 
-    # Crear un histograma utilizando plotly.graph_objects
-    # Se crea una figura vacía y luego se añade un rastro de histograma
-    fig = go.Figure(data=[go.Histogram(x=car_data['odometer'])])
+    st.subheader("📊 Histograma: Odómetro")
+    plot_histogram(filtered_df, "odometer", "Distribución de Kilometraje")
 
-    # Opcional: Puedes añadir un título al gráfico si lo deseas
-    fig.update_layout(title_text='Distribución del Odómetro')
+    st.subheader("📈 Scatterplot: Odómetro vs Precio")
+    plot_scatter(filtered_df, "odometer", "price", "Relación Kilometraje vs Precio")
 
-    # Mostrar el gráfico Plotly interactivo en la aplicación Streamlit
-    # 'use_container_width=True' ajusta el ancho del gráfico al contenedor
-    st.plotly_chart(fig, use_container_width=True)
+else:
+    st.warning("El dataset no tiene las columnas necesarias para graficar.")
